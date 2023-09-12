@@ -48,23 +48,10 @@ const Browse = () => {
         user.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
-  useEffect(() => {
-    const dataRef = ref(db, "/");
-    const unsubscribe = onValue(dataRef, (snapshot) => {
-      const data = snapshot.val();
-      if (searchTerm) {
-        const filteredUsers = filterUsers(Object.values(data), searchTerm);
-        const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
-        setUsers(sortedUsers);
-      }
-    });
-    return () => unsubscribe();
-  }, [searchTerm]);
-
-  // Filters users to get featured contractors
   const filterFeaturedContractors = (users) => {
     return users.filter((user) => user.featured);
   };
+
   useEffect(() => {
     const dataRef = ref(db, "/");
     onValue(dataRef, (snapshot) => {
@@ -73,9 +60,15 @@ const Browse = () => {
         Object.values(data)
       );
       setFeaturedUsers(featuredContractors);
-      setUsers(featuredContractors);
+      if (searchTerm) {
+        const filteredUsers = filterUsers(Object.values(data), searchTerm);
+        const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
+        setUsers(sortedUsers);
+      } else {
+        setUsers(featuredContractors);
+      }
     });
-  }, []);
+  }, [searchTerm]);
 
   // Options for search bar dropdown
   useEffect(() => {
