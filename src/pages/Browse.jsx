@@ -10,6 +10,7 @@ import { db } from "../firebase";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import Modal from "react-modal";
+import { isReactNative } from "@firebase/util";
 
 const customStylesBrowse = {
   control: (provided) => ({
@@ -30,24 +31,54 @@ const customStylesBrowse = {
 
 const Browse = () => {
   const location = useLocation();
-  const { searchTerm: initialSearchTerm } = location.state || {};
+  const { searchTerm: initialSearchTerm, location: initialLocationSearchTerm } =
+    location.state || {};
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm || "");
+  const [locationSearchTerm, setLocationSearchTerm] = useState(
+    initialLocationSearchTerm || ""
+  );
   const [featuredUsers, setFeaturedUsers] = useState([]);
   const [users, setUsers] = useState([]);
   const [options, setOptions] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  // const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // Handles search on Browse page
-  const filterUsers = (users, searchTerm) => {
-    return users.filter(
-      (user) =>
-        user.title &&
-        user.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filterUsers = (users, searchTerm, location) => {
+    return users.filter((user) => {
+      if (user.title) {
+        const titleMatch = user.title
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+        // If location is not provided, return based on title match only
+        if (!location) {
+          return titleMatch;
+        }
+
+        // If location is provided, check for location match
+        if (user.location) {
+          const userLocationString = [
+            user.location.country,
+            user.location.city,
+            user.location.suburb,
+            user.location.zipcode,
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          const locationMatch = userLocationString.includes(
+            location.toLowerCase()
+          );
+
+          return titleMatch && locationMatch;
+        }
+      }
+    });
   };
+
   const filterFeaturedContractors = (users) => {
     return users.filter((user) => user.featured);
   };
@@ -61,14 +92,23 @@ const Browse = () => {
       );
       setFeaturedUsers(featuredContractors);
       if (searchTerm) {
-        const filteredUsers = filterUsers(Object.values(data), searchTerm);
+        const filteredUsers = filterUsers(
+          Object.values(data),
+          searchTerm,
+          locationSearchTerm
+        );
         const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
         setUsers(sortedUsers);
+
+        // Check if no results were found
+        if (sortedUsers.length === 0) {
+          console.log("Oh no, check back soon as more businesses join!");
+        }
       } else {
         setUsers(featuredContractors);
       }
     });
-  }, [searchTerm]);
+  }, [searchTerm, locationSearchTerm]);
 
   // Options for search bar dropdown
   useEffect(() => {
@@ -114,10 +154,22 @@ const Browse = () => {
                   className="browse-zipcode-input"
                   type="text"
                   placeholder="Enter City, Suburb or Zipcode"
+                  value={locationSearchTerm || ""}
+                  onChange={(e) => setLocationSearchTerm(e.target.value)}
                 />
                 <button
                   className="browse-search-button"
-                  onClick={() => setSearchTerm(selectedOption.label)}
+                  onClick={() => {
+                    setSearchTerm(selectedOption.label);
+                    setLocationSearchTerm(
+                      document.querySelector(".browse-zipcode-input").value
+                    );
+                    console.log(
+                      `.browse-zipcode-input: ${
+                        document.querySelector(".browse-zipcode-input").value
+                      }`
+                    );
+                  }}
                 >
                   Search
                 </button>
@@ -130,6 +182,7 @@ const Browse = () => {
                   setSearchTerm(null);
                   setSelectedOption(null);
                   setUsers(featuredUsers);
+                  setLocationSearchTerm(null);
                 }}
               >
                 Clear Search
@@ -138,11 +191,20 @@ const Browse = () => {
           </div>
         </div>
         <div className="browse-title">
-          {!searchTerm ? <h2>Monthly Showcase</h2> : <h2>{searchTerm}</h2>}
-          {!searchTerm ? (
-            <p>Check out some of the top-rated contractors of this month</p>
+          {users.length > 0 ? (
+            searchTerm ? (
+              <>
+                <h2>{searchTerm}</h2>
+                <p>List of popular {searchTerm}s in your area.</p>
+              </>
+            ) : (
+              <>
+                <h2>Monthly Showcase</h2>
+                <p>Check out some of the top-rated contractors of this month</p>
+              </>
+            )
           ) : (
-            <p>List of popular {searchTerm}s in your area.</p>
+            <h2>Oh no, check back soon as more businesses join!</h2>
           )}
         </div>
 
@@ -157,7 +219,10 @@ const Browse = () => {
                   {user.first_name} {user.last_name}
                 </h2>
                 <h3>{user.title}</h3>
-                <p style={{ margin: "0" }}>Location</p>
+                <p style={{ margin: "0" }}>
+                  <span style={{ fontWeight: "bold" }}>Location: </span>
+                  {user.location.city}, {user.location.country}
+                </p>
                 <div className="browse-rating">
                   <img src={star} alt="star" style={{ width: "20px" }} />
                   <p style={{ fontWeight: "600" }}>{user.rating}</p>{" "}
@@ -191,8 +256,10 @@ const Browse = () => {
               <h2>
                 {selectedUser?.first_name} {selectedUser?.last_name}
               </h2>
-              <p>{selectedUser?.title}</p>
-              <p>Location </p>
+              <p style={{ fontWeight: "bold" }}>{selectedUser?.title}</p>
+              <span style={{ fontWeight: "bold" }}>Location: </span>
+              {selectedUser?.location.suburb}, {selectedUser?.location.city},{" "}
+              {selectedUser?.location.country}, {selectedUser?.location.zipcode}
             </div>
           </div>
           <div>
@@ -245,6 +312,22 @@ const Browse = () => {
               nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
               eum fuga quibusdam blanditiis veniam saepe porro rerum
               reprehenderit non aperiam qui. <br />
+              <br /> - User
+            </div>
+            <div className="review-card">
+              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
+              eum fuga quibusdam blanditiis veniam saepe porro rerum
+              reprehenderit non aperiam qui.
+              <br />
+              <br /> - User
+            </div>
+            <div className="review-card">
+              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
+              eum fuga quibusdam blanditiis veniam saepe porro rerum
+              reprehenderit non aperiam qui.
+              <br />
               <br /> - User
             </div>
             <div className="review-card">

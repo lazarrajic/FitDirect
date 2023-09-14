@@ -115,6 +115,7 @@ input:focus {
   margin-right: 100px;
   position: relative;
   margin-top: 50px;
+  height: 100vh;
 }
 
 .browse-card {
@@ -217,8 +218,6 @@ input:focus {
   display: grid;
   grid-template-rows: 1fr 1fr;
   overflow: hidden;
-  /* align-content: center;
-  align-items: center; */
 }
 
 .modal-button {
@@ -277,11 +276,14 @@ input:focus {
 }
 
 .reviews {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   flex-direction: row;
   justify-content: space-between;
   width: 60%;
   gap: 50px;
+  overflow: scroll;
+  max-height: 250px;
 }
 
 .review-card {
