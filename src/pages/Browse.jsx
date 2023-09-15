@@ -10,7 +10,6 @@ import { db } from "../firebase";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import Modal from "react-modal";
-import { isReactNative } from "@firebase/util";
 
 const customStylesBrowse = {
   control: (provided) => ({
@@ -29,6 +28,29 @@ const customStylesBrowse = {
   }),
 };
 
+export async function getTemplatesWithId(db, id, setState) {
+  console.log("with id", id);
+  return db
+    .collection("templates")
+    .get()
+    .then((data) => {
+      console.log("data", data);
+      if (data) {
+        const dataToLoad = data.docs.find((doc) => {
+          return doc.data().author === id;
+        });
+        if (dataToLoad) {
+          console.log(dataToLoad.data(), "LOAD with ID", id);
+          setState(dataToLoad.data());
+          return dataToLoad.data();
+        }
+      }
+    })
+    .catch((e) => {
+      console.log("e", e);
+    });
+}
+
 const Browse = () => {
   const location = useLocation();
   const { searchTerm: initialSearchTerm, location: initialLocationSearchTerm } =
@@ -45,93 +67,99 @@ const Browse = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   // const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const navigate = useNavigate();
+  const [templates, setTemplates] = useState([]);
 
-  const filterUsers = (users, searchTerm, location) => {
-    return users.filter((user) => {
-      if (user.title) {
-        const titleMatch = user.title
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    // Call your asynchronous function to fetch all data (no need for a user ID filter)
+    getTemplatesWithId(db, null, setTemplates); // Pass null as the user ID
+  }, []);
 
-        // If location is not provided, return based on title match only
-        if (!location) {
-          return titleMatch;
-        }
+  // const filterUsers = (users, searchTerm, location) => {
+  //   return users.filter((user) => {
+  //     if (user.title) {
+  //       const titleMatch = user.title
+  //         .toLowerCase()
+  //         .includes(searchTerm.toLowerCase());
 
-        // If location is provided, check for location match
-        if (user.location) {
-          const userLocationString = [
-            user.location.country,
-            user.location.city,
-            user.location.suburb,
-            user.location.zipcode,
-          ]
-            .join(" ")
-            .toLowerCase();
+  //       // If location is not provided, return based on title match only
+  //       if (!location) {
+  //         return titleMatch;
+  //       }
 
-          const locationMatch = userLocationString.includes(
-            location.toLowerCase()
-          );
+  //       // If location is provided, check for location match
+  //       if (user.location) {
+  //         const userLocationString = [
+  //           user.location.country,
+  //           user.location.city,
+  //           user.location.suburb,
+  //           user.location.zipcode,
+  //         ]
+  //           .join(" ")
+  //           .toLowerCase();
 
-          return titleMatch && locationMatch;
-        }
-      }
-    });
-  };
+  //         const locationMatch = userLocationString.includes(
+  //           location.toLowerCase()
+  //         );
+
+  //         return titleMatch && locationMatch;
+  //       }
+  //     }
+  //   });
+  // };
 
   const filterFeaturedContractors = (users) => {
     return users.filter((user) => user.featured);
   };
 
-  useEffect(() => {
-    const dataRef = ref(db, "/");
-    onValue(dataRef, (snapshot) => {
-      const data = snapshot.val();
-      const featuredContractors = filterFeaturedContractors(
-        Object.values(data)
-      );
-      setFeaturedUsers(featuredContractors);
-      if (searchTerm) {
-        const filteredUsers = filterUsers(
-          Object.values(data),
-          searchTerm,
-          locationSearchTerm
-        );
-        const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
-        setUsers(sortedUsers);
+  // useEffect(() => {
+  //   const dataRef = ref(db, "/");
+  //   onValue(dataRef, (snapshot) => {
+  //     const data = snapshot.val();
+  //     const featuredContractors = filterFeaturedContractors(
+  //       Object.values(data)
+  //     );
+  //     setFeaturedUsers(featuredContractors);
+  //     if (searchTerm) {
+  //       const filteredUsers = filterUsers(
+  //         Object.values(data),
+  //         searchTerm,
+  //         locationSearchTerm
+  //       );
+  //       const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
+  //       setUsers(sortedUsers);
 
-        // Check if no results were found
-        if (sortedUsers.length === 0) {
-          console.log("Oh no, check back soon as more businesses join!");
-        }
-      } else {
-        setUsers(featuredContractors);
-      }
-    });
-  }, [searchTerm, locationSearchTerm]);
+  //       // Check if no results were found
+  //       if (sortedUsers.length === 0) {
+  //         console.log("Oh no, check back soon as more businesses join!");
+  //       }
+  //     } else {
+  //       setUsers(featuredContractors);
+  //     }
+  //   });
+  // }, [searchTerm, locationSearchTerm]);
 
-  // Options for search bar dropdown
-  useEffect(() => {
-    const dataRef = ref(db, "/");
-    onValue(dataRef, (snapshot) => {
-      const data = snapshot.val();
-      const titles = new Set();
-      const options = Object.values(data)
-        .filter((user) => {
-          if (!user.title || titles.has(user.title)) {
-            return false;
-          } else {
-            titles.add(user.title);
-            return true;
-          }
-        })
-        .map((user) => ({
-          value: user.id,
-          label: user.title,
-        }));
-      setOptions(options);
-    });
-  }, []);
+  // // Options for search bar dropdown
+  // useEffect(() => {
+  //   const dataRef = ref(db, "/");
+  //   onValue(dataRef, (snapshot) => {
+  //     const data = snapshot.val();
+  //     const titles = new Set();
+  //     const options = Object.values(data)
+  //       .filter((user) => {
+  //         if (!user.title || titles.has(user.title)) {
+  //           return false;
+  //         } else {
+  //           titles.add(user.title);
+  //           return true;
+  //         }
+  //       })
+  //       .map((user) => ({
+  //         value: user.id,
+  //         label: user.title,
+  //       }));
+  //     setOptions(options);
+  //   });
+  // }, []);
 
   return (
     <div>
@@ -209,6 +237,14 @@ const Browse = () => {
         </div>
 
         <div className="browse-results">
+          <div>
+            <h1>Templates</h1>
+            {templates.map((template, index) => (
+              <div key={index} className="browse-card">
+                {template.name} console.log(template)
+              </div>
+            ))}
+          </div>
           {users.map((user) => (
             <div key={user.id} className="browse-card">
               <div className="card-image">

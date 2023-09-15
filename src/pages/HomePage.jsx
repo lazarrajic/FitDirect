@@ -43,28 +43,28 @@ const HomePage = () => {
     navigate("/browse", { state: { searchTerm, location } });
   };
 
-  useEffect(() => {
-    const dataRef = ref(db, "/");
-    onValue(dataRef, (snapshot) => {
-      const data = snapshot.val();
-      // Map users to options
-      const titles = new Set();
-      const options = Object.values(data)
-        .filter((user) => {
-          if (titles.has(user.title)) {
-            return false;
-          } else {
-            titles.add(user.title);
-            return true;
-          }
-        })
-        .map((user) => ({
-          value: user.id,
-          label: user.title,
-        }));
-      setOptions(options);
-    });
-  }, []);
+  // useEffect(() => {
+  //   const dataRef = ref(db, "/");
+  //   onValue(dataRef, (snapshot) => {
+  //     const data = snapshot.val();
+  //     // Map users to options
+  //     const titles = new Set();
+  //     const options = Object.values(data)
+  //       .filter((user) => {
+  //         if (titles.has(user.title)) {
+  //           return false;
+  //         } else {
+  //           titles.add(user.title);
+  //           return true;
+  //         }
+  //       })
+  //       .map((user) => ({
+  //         value: user.id,
+  //         label: user.title,
+  //       }));
+  //     setOptions(options);
+  //   });
+  // }, []);
 
   return (
     <div className="home-container">
