@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaRegObjectUngroup } from "react-icons/fa";
+import { FaCity, FaRegObjectUngroup } from "react-icons/fa";
 import "./Browse.css";
 import Select from "react-select";
 import avi from "../images/avi.png";
@@ -28,27 +28,43 @@ const customStylesBrowse = {
   }),
 };
 
+export async function getAllTemplates(db) {
+  try {
+    const querySnapshot = await db.collection("templates").get();
+    const templates = [];
+    querySnapshot.forEach((doc) => {
+      templates.push({ id: doc.id, ...doc.data() });
+    });
+    // console.log("All templates:", templates);
+    return templates;
+  } catch (error) {
+    console.error("Error getting templates:", error);
+  }
+}
+
 export async function getTemplatesWithId(db, id, setState) {
-  console.log("with id", id);
+  // console.log("with id", id);
   return db
     .collection("templates")
+    .doc("t-" + id)
     .get()
-    .then((data) => {
-      console.log("data", data);
-      if (data) {
-        const dataToLoad = data.docs.find((doc) => {
-          return doc.data().author === id;
-        });
-        if (dataToLoad) {
-          console.log(dataToLoad.data(), "LOAD with ID", id);
-          setState(dataToLoad.data());
-          return dataToLoad.data();
-        }
+    .then((doc) => {
+      if (doc.exists) {
+        // console.log(doc.data(), "LOAD with ID", id);
+        setState(doc.data());
+        return doc.data();
       }
     })
     .catch((e) => {
       console.log("e", e);
     });
+}
+
+function capitalizeFirstLetterOfEachWord(str) {
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 const Browse = () => {
@@ -63,16 +79,48 @@ const Browse = () => {
   const [users, setUsers] = useState([]);
   const [options, setOptions] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
-  const [modalIsOpen, setModalIsOpen] = useState(false);
+  // const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [openModalIndex, setOpenModalIndex] = useState(null);
+
   const [selectedUser, setSelectedUser] = useState(null);
   // const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
 
   useEffect(() => {
-    // Call your asynchronous function to fetch all data (no need for a user ID filter)
-    getTemplatesWithId(db, null, setTemplates); // Pass null as the user ID
+    const fetchTemplates = async () => {
+      try {
+        const ordersSnapshot = await db.collection("orders").get();
+
+        const promises = ordersSnapshot.docs.map(async (orderDoc) => {
+          const code = orderDoc.data().code;
+          // console.log("Fetching template for code:", code);
+
+          const templateSnapshot = await db
+            .collection("templates")
+            .doc("t-" + code)
+            .get();
+
+          if (templateSnapshot.exists) {
+            console.log("Fetched template:", templateSnapshot.data());
+            return templateSnapshot.data();
+          } else {
+            console.error("Template for code", code, "does not exist.");
+            return null;
+          }
+        });
+
+        const templateData = await Promise.all(promises);
+        setTemplates(templateData);
+      } catch (error) {
+        console.error("Error fetching templates:", error);
+      }
+    };
+
+    fetchTemplates();
   }, []);
+
+  getAllTemplates(db);
 
   // const filterUsers = (users, searchTerm, location) => {
   //   return users.filter((user) => {
@@ -160,6 +208,24 @@ const Browse = () => {
   //     setOptions(options);
   //   });
   // }, []);
+  const openModal = (index) => {
+    setOpenModalIndex(index);
+  };
+
+  useEffect(() => {
+    if (openModalIndex !== null) {
+      // Disable scrolling on the body when the modal is open
+      document.body.style.overflow = "hidden";
+    } else {
+      // Re-enable scrolling when the modal is closed
+      document.body.style.overflow = "auto";
+    }
+
+    // Cleanup function to re-enable scrolling when the component is unmounted
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [openModalIndex]);
 
   return (
     <div>
@@ -172,9 +238,11 @@ const Browse = () => {
                   className="search-bar-browse"
                   placeholder="Search for a business, contractor, or service"
                   options={options}
+                  key={options.value}
+                  value={options.value}
                   styles={customStylesBrowse}
                   onChange={(option) => setSelectedOption(option)}
-                  value={selectedOption}
+                  // value={selectedOption}
                 />
 
                 <div className="browse-search-divider"></div>
@@ -219,7 +287,7 @@ const Browse = () => {
           </div>
         </div>
         <div className="browse-title">
-          {users.length > 0 ? (
+          {templates.length > 0 ? (
             searchTerm ? (
               <>
                 <h2>{searchTerm}</h2>
@@ -237,149 +305,220 @@ const Browse = () => {
         </div>
 
         <div className="browse-results">
-          <div>
-            <h1>Templates</h1>
-            {templates.map((template, index) => (
-              <div key={index} className="browse-card">
-                {template.name} console.log(template)
-              </div>
-            ))}
-          </div>
-          {users.map((user) => (
-            <div key={user.id} className="browse-card">
+          {/* <div>
+            <ul>
+              {templates.map((template, index) => (
+                <li key={index}>{JSON.stringify(template)}</li>
+              ))}
+            </ul>
+          </div> */}
+          {templates.map((template, index) => (
+            <div key={index} className="browse-card">
               <div className="card-image">
-                <img src={avi} alt="random" style={{ width: "100px" }} />
+                <img
+                  src={template?.content.imageURLArray[1] || avi}
+                  alt="template image"
+                  style={{
+                    width: "150px",
+                    height: "150px",
+                    borderRadius: "50%",
+                    maxHeight: "150px",
+                    objectFit: "cover",
+                  }}
+                />
               </div>
               <div className="card-details">
+                <h3 style={{ margin: "0" }}>
+                  {template?.content.firstName}{" "}
+                  {template?.content.lastName || " "}
+                </h3>
                 <h2>
-                  {user.first_name} {user.last_name}
+                  {capitalizeFirstLetterOfEachWord(
+                    template?.content.businessName || "Default Title"
+                  )}
                 </h2>
-                <h3>{user.title}</h3>
+
                 <p style={{ margin: "0" }}>
                   <span style={{ fontWeight: "bold" }}>Location: </span>
-                  {user.location.city}, {user.location.country}
+                  {template?.content.contactAddress
+                    ? (() => {
+                        const parts =
+                          template?.content.contactAddress.split(",");
+                        const city = parts[1]?.trim() || "";
+                        const zip = parts[2]?.split(" ")[1] || "";
+                        const country = parts[3]?.trim() || "";
+                        return `${city}, ${zip}, ${country}`;
+                      })()
+                    : null}
                 </p>
                 <div className="browse-rating">
-                  <img src={star} alt="star" style={{ width: "20px" }} />
-                  <p style={{ fontWeight: "600" }}>{user.rating}</p>{" "}
+                  <img
+                    src={star}
+                    alt="rating for template"
+                    style={{ width: "20px" }}
+                  />
+                  <p style={{ fontWeight: "600" }}>{/* rating number */}</p>{" "}
                   <p style={{ textDecoration: "underline", cursor: "pointer" }}>
-                    {user.num_reviews} Reviews
+                    {/* rating text */}
                   </p>
                 </div>
                 <button
                   className="card-button"
                   onClick={() => {
-                    setModalIsOpen(true);
-                    setSelectedUser(user);
+                    // setModalIsOpen(true);
+                    openModal(index);
+                    setSelectedUser(template);
                   }}
                 >
-                  View{" "}
+                  View
                 </button>
               </div>
             </div>
           ))}
         </div>
       </div>
-      <Modal
-        className="modal"
-        isOpen={modalIsOpen}
-        onRequestClose={() => setModalIsOpen(false)}
-      >
-        <div className="modal-details">
-          <div className="profile-details">
-            <img src={avi} alt="random" style={{ width: "100px" }} />
-            <div>
-              <h2>
-                {selectedUser?.first_name} {selectedUser?.last_name}
-              </h2>
-              <p style={{ fontWeight: "bold" }}>{selectedUser?.title}</p>
-              <span style={{ fontWeight: "bold" }}>Location: </span>
-              {selectedUser?.location.suburb}, {selectedUser?.location.city},{" "}
-              {selectedUser?.location.country}, {selectedUser?.location.zipcode}
-            </div>
-          </div>
-          <div>
-            <p>
-              "Here will be a short description of the contractor and the
-              services they offer, and a prompt to find out more the user can
-              view their website or book below!"
-            </p>
-            <h3>Website Link:</h3>
-            <h3>Book Now:</h3>
-          </div>
-        </div>
-
-        <div className="modal-secondary">
-          <div className="review-details">
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                gap: "2px",
-                justifyContent: "center",
-              }}
-            >
+      {templates.map((template, index) => (
+        <Modal
+          key={index}
+          className="modal"
+          // isOpen={modalIsOpen}
+          isOpen={openModalIndex === index}
+          // onRequestClose={() => setModalIsOpen(false)}
+          onRequestClose={() => setOpenModalIndex(null)}
+        >
+          <div className="modal-details">
+            <div className="profile-details">
+              {/* <img src={avi} alt="random" style={{ width: "100px" }} /> */}
               <img
-                src={star}
-                alt="star"
-                style={{ width: "20px", objectFit: "cover", height: "20px" }}
+                src={template?.content.imageURLArray[1] || avi}
+                alt="template image"
+                style={{
+                  width: "150px",
+                  height: "150px",
+                  borderRadius: "50%",
+                  maxHeight: "150px",
+                  objectFit: "cover",
+                }}
               />
-              <h4 style={{ margin: "0" }}>Overall Rating</h4>
+              <div>
+                <h2>
+                  {template?.content.firstName || "Name"}{" "}
+                  {template?.content.lastName || " "}
+                </h2>
+                <p style={{ fontWeight: "bold" }}>
+                  {" "}
+                  {capitalizeFirstLetterOfEachWord(
+                    template?.content.businessName || "Default Title"
+                  )}
+                </p>
+                <span style={{ fontWeight: "bold" }}>Location: </span>
+                {/* {selectedUser?.location.suburb}, {selectedUser?.location.city},{" "}
+              {selectedUser?.location.country}, {selectedUser?.location.zipcode} */}
+                {template?.content.contactAddress || " "}
+                <p>
+                  <span style={{ fontWeight: "bold" }}>Email:</span>{" "}
+                  {template?.content.contactEmail || ""}
+                </p>
+                <p>
+                  <span style={{ fontWeight: "bold" }}>Phone:</span>{" "}
+                  {template?.content.contactPhone || ""}
+                </p>
+              </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <h1 style={{ fontSize: "40px" }}>{selectedUser?.rating}</h1>
-              <p style={{ margin: "0" }}>
-                {" "}
-                {selectedUser?.num_reviews} Verified User Reviews
+            <div>
+              <p>
+                {/* "Here will be a short description of the contractor and the
+                services they offer, and a prompt to find out more the user can
+                view their website or book below!" */}
+                {template?.content.titleBlurb || "Book with us below! "}
+              </p>
+              <p>
+                <span style={{ fontWeight: "bold" }}>Website Link:</span>{" "}
+                {template?.content.preferredDomain || ""}
+              </p>
+              <p>
+                <span style={{ fontWeight: "bold" }}>Book Now:</span> Calendly
+                Link
               </p>
             </div>
           </div>
-          <div className="reviews">
-            <div className="review-card">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
-              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
-              eum fuga quibusdam blanditiis veniam saepe porro rerum
-              reprehenderit non aperiam qui. <br />
-              <br /> - User
+
+          <div className="modal-secondary">
+            <div className="review-details">
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: "2px",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={star}
+                  alt="star"
+                  style={{ width: "20px", objectFit: "cover", height: "20px" }}
+                />
+                <h4 style={{ margin: "0" }}>Overall Rating</h4>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <h1 style={{ fontSize: "40px" }}>
+                  {selectedUser?.rating || "0.0"}
+                </h1>
+
+                <p style={{ margin: "0" }}>
+                  {" "}
+                  {selectedUser?.num_reviews || "0"} Verified User Reviews
+                </p>
+              </div>
             </div>
-            <div className="review-card">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
-              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
-              eum fuga quibusdam blanditiis veniam saepe porro rerum
-              reprehenderit non aperiam qui.
-              <br />
-              <br /> - User
-            </div>
-            <div className="review-card">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
-              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
-              eum fuga quibusdam blanditiis veniam saepe porro rerum
-              reprehenderit non aperiam qui.
-              <br />
-              <br /> - User
-            </div>
-            <div className="review-card">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
-              nostrum maxime magni, tenetur, itaque veritatis ex officia soluta
-              eum fuga quibusdam blanditiis veniam saepe porro rerum
-              reprehenderit non aperiam qui.
-              <br />
-              <br /> - User
+
+            <div className="reviews">
+              <div className="review-card">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+                nostrum maxime magni, tenetur, itaque veritatis ex officia
+                soluta eum fuga quibusdam blanditiis veniam saepe porro rerum
+                reprehenderit non aperiam qui. <br />
+                <br /> - User
+              </div>
+              <div className="review-card">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+                nostrum maxime magni, tenetur, itaque veritatis ex officia
+                soluta eum fuga quibusdam blanditiis veniam saepe porro rerum
+                reprehenderit non aperiam qui.
+                <br />
+                <br /> - User
+              </div>
+              <div className="review-card">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+                nostrum maxime magni, tenetur, itaque veritatis ex officia
+                soluta eum fuga quibusdam blanditiis veniam saepe porro rerum
+                reprehenderit non aperiam qui.
+                <br />
+                <br /> - User
+              </div>
+              <div className="review-card">
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsa,
+                nostrum maxime magni, tenetur, itaque veritatis ex officia
+                soluta eum fuga quibusdam blanditiis veniam saepe porro rerum
+                reprehenderit non aperiam qui.
+                <br />
+                <br /> - User
+              </div>
             </div>
           </div>
-        </div>
-        {/* <button className="modal-button" onClick={() => setModalIsOpen(false)}>
+          {/* <button className="modal-button" onClick={() => setModalIsOpen(false)}>
           Close
         </button> */}
-      </Modal>
+        </Modal>
+      ))}
     </div>
   );
 };

@@ -173,6 +173,7 @@ const HomePage = () => {
             find the perfect solution to anything you need. <br /> Donwload it
             now!
           </p>
+          <h3 style={{ fontSize: "40px", fontWeight: "400" }}>Coming Soon!</h3>
         </div>
         <div className="app-download-image">
           <img src={Book} style={{ width: "500px" }} />
