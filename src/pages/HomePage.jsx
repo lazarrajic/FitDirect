@@ -44,27 +44,64 @@ const HomePage = () => {
   };
 
   // useEffect(() => {
-  //   const dataRef = ref(db, "/");
-  //   onValue(dataRef, (snapshot) => {
-  //     const data = snapshot.val();
-  //     // Map users to options
-  //     const titles = new Set();
-  //     const options = Object.values(data)
-  //       .filter((user) => {
-  //         if (titles.has(user.title)) {
-  //           return false;
-  //         } else {
-  //           titles.add(user.title);
-  //           return true;
+  //   const fetchServiceTypes = async () => {
+  //     const templatesSnapshot = await db.collection("templates").get();
+  //     const serviceTypesLookup = {};
+
+  //     templatesSnapshot.forEach((doc) => {
+  //       let serviceType = doc.data().content?.serviceType;
+  //       if (serviceType) {
+  //         serviceType = serviceType.trim();
+  //         const normalized = serviceType.toLowerCase();
+  //         if (!serviceTypesLookup[normalized]) {
+  //           serviceTypesLookup[normalized] = serviceType;
   //         }
+  //       }
+  //     });
+  //     const dropdownOptions = Object.keys(serviceTypesLookup).map(
+  //       (normalized) => ({
+  //         value: normalized,
+  //         label: serviceTypesLookup[normalized],
   //       })
-  //       .map((user) => ({
-  //         value: user.id,
-  //         label: user.title,
-  //       }));
-  //     setOptions(options);
-  //   });
+  //     );
+
+  //     setOptions(dropdownOptions);
+  //   };
+
+  //   fetchServiceTypes();
   // }, []);
+
+  //isLive version
+  useEffect(() => {
+    const fetchServiceTypes = async () => {
+      const templatesSnapshot = await db
+        .collection("templates")
+        .where("isLive", "==", true)
+        .get();
+      const serviceTypesLookup = {};
+
+      templatesSnapshot.forEach((doc) => {
+        let serviceType = doc.data().content?.serviceType;
+        if (serviceType) {
+          serviceType = serviceType.trim();
+          const normalized = serviceType.toLowerCase();
+          if (!serviceTypesLookup[normalized]) {
+            serviceTypesLookup[normalized] = serviceType;
+          }
+        }
+      });
+      const dropdownOptions = Object.keys(serviceTypesLookup).map(
+        (normalized) => ({
+          value: normalized,
+          label: serviceTypesLookup[normalized],
+        })
+      );
+
+      setOptions(dropdownOptions);
+    };
+
+    fetchServiceTypes();
+  }, []);
 
   return (
     <div className="home-container">

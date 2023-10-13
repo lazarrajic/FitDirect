@@ -5,7 +5,6 @@ import Select from "react-select";
 import avi from "../images/avi.png";
 import star from "../images/star.png";
 import { getDatabase, ref, onValue } from "firebase/database";
-// import app from "../App";
 import { db } from "../firebase";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -28,20 +27,58 @@ const customStylesBrowse = {
   }),
 };
 
+// export async function getAllTemplates(db) {
+//   try {
+//     const querySnapshot = await db.collection("templates").get();
+//     const templates = [];
+//     querySnapshot.forEach((doc) => {
+//       templates.push({ id: doc.id, ...doc.data() });
+//     });
+//     // console.log("All templates:", templates);
+//     return templates;
+//   } catch (error) {
+//     console.error("Error getting templates:", error);
+//   }
+// }
+
+// isLive flag check version
 export async function getAllTemplates(db) {
   try {
     const querySnapshot = await db.collection("templates").get();
     const templates = [];
     querySnapshot.forEach((doc) => {
-      templates.push({ id: doc.id, ...doc.data() });
+      const templateData = doc.data();
+      console.log("Raw Template Data:", templateData);
+      if (templateData.isLive === true) {
+        templates.push({ id: doc.id, ...templateData });
+      }
     });
-    // console.log("All templates:", templates);
+    console.log("Filtered templates:", templates);
     return templates;
   } catch (error) {
     console.error("Error getting templates:", error);
   }
 }
 
+// export async function getTemplatesWithId(db, id, setState) {
+//   // console.log("with id", id);
+//   return db
+//     .collection("templates")
+//     .doc("t-" + id)
+//     .get()
+//     .then((doc) => {
+//       if (doc.exists) {
+//         // console.log(doc.data(), "LOAD with ID", id);
+//         setState(doc.data());
+//         return doc.data();
+//       }
+//     })
+//     .catch((e) => {
+//       console.log("e", e);
+//     });
+// }
+
+// isLive flag check version
 export async function getTemplatesWithId(db, id, setState) {
   // console.log("with id", id);
   return db
@@ -50,9 +87,11 @@ export async function getTemplatesWithId(db, id, setState) {
     .get()
     .then((doc) => {
       if (doc.exists) {
-        // console.log(doc.data(), "LOAD with ID", id);
-        setState(doc.data());
-        return doc.data();
+        const templateData = doc.data();
+        if (templateData.isLive) {
+          setState(templateData);
+          return templateData;
+        }
       }
     })
     .catch((e) => {
@@ -79,14 +118,47 @@ const Browse = () => {
   const [users, setUsers] = useState([]);
   const [options, setOptions] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
-  // const [modalIsOpen, setModalIsOpen] = useState(false);
   const [openModalIndex, setOpenModalIndex] = useState(null);
-
   const [selectedUser, setSelectedUser] = useState(null);
-  // const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
 
+  // useEffect(() => {
+  //   const fetchTemplates = async () => {
+  //     try {
+  //       const ordersSnapshot = await db.collection("orders").get();
+
+  //       const promises = ordersSnapshot.docs.map(async (orderDoc) => {
+  //         const code = orderDoc.data().code;
+  //         // console.log("Fetching template for code:", code);
+
+  //         const templateSnapshot = await db
+  //           .collection("templates")
+  //           .doc("t-" + code)
+  //           .get();
+
+  //         if (templateSnapshot.exists) {
+  //           console.log("Fetched template:", templateSnapshot.data());
+  //           return templateSnapshot.data();
+  //         } else {
+  //           console.error("Template for code", code, "does not exist.");
+  //           return null;
+  //         }
+  //       });
+
+  //       const templateData = await Promise.all(promises);
+  //       setTemplates(templateData);
+  //     } catch (error) {
+  //       console.error("Error fetching templates:", error);
+  //     }
+  //   };
+
+  //   fetchTemplates();
+  // }, []);
+
+  // getAllTemplates(db);
+
+  //isLive version
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
@@ -94,18 +166,23 @@ const Browse = () => {
 
         const promises = ordersSnapshot.docs.map(async (orderDoc) => {
           const code = orderDoc.data().code;
-          // console.log("Fetching template for code:", code);
 
           const templateSnapshot = await db
             .collection("templates")
             .doc("t-" + code)
             .get();
 
-          if (templateSnapshot.exists) {
-            console.log("Fetched template:", templateSnapshot.data());
-            return templateSnapshot.data();
+          const data = templateSnapshot.data();
+          if (templateSnapshot.exists && data.isLive) {
+            // Ensure it's live here
+            console.log("Fetched template:", data);
+            return data;
           } else {
-            console.error("Template for code", code, "does not exist.");
+            console.error(
+              "Template for code",
+              code,
+              "does not exist or is not live."
+            );
             return null;
           }
         });
@@ -116,112 +193,134 @@ const Browse = () => {
         console.error("Error fetching templates:", error);
       }
     };
-
     fetchTemplates();
   }, []);
-
-  getAllTemplates(db);
-
-  // const filterUsers = (users, searchTerm, location) => {
-  //   return users.filter((user) => {
-  //     if (user.title) {
-  //       const titleMatch = user.title
-  //         .toLowerCase()
-  //         .includes(searchTerm.toLowerCase());
-
-  //       // If location is not provided, return based on title match only
-  //       if (!location) {
-  //         return titleMatch;
-  //       }
-
-  //       // If location is provided, check for location match
-  //       if (user.location) {
-  //         const userLocationString = [
-  //           user.location.country,
-  //           user.location.city,
-  //           user.location.suburb,
-  //           user.location.zipcode,
-  //         ]
-  //           .join(" ")
-  //           .toLowerCase();
-
-  //         const locationMatch = userLocationString.includes(
-  //           location.toLowerCase()
-  //         );
-
-  //         return titleMatch && locationMatch;
-  //       }
-  //     }
-  //   });
-  // };
 
   const filterFeaturedContractors = (users) => {
     return users.filter((user) => user.featured);
   };
 
   // useEffect(() => {
-  //   const dataRef = ref(db, "/");
-  //   onValue(dataRef, (snapshot) => {
-  //     const data = snapshot.val();
-  //     const featuredContractors = filterFeaturedContractors(
-  //       Object.values(data)
-  //     );
-  //     setFeaturedUsers(featuredContractors);
-  //     if (searchTerm) {
-  //       const filteredUsers = filterUsers(
-  //         Object.values(data),
-  //         searchTerm,
-  //         locationSearchTerm
-  //       );
-  //       const sortedUsers = filteredUsers.sort((a, b) => b.rating - a.rating);
-  //       setUsers(sortedUsers);
+  //   const fetchServiceTypes = async () => {
+  //     const templatesSnapshot = await db.collection("templates").get();
+  //     const serviceTypesLookup = {};
 
-  //       // Check if no results were found
-  //       if (sortedUsers.length === 0) {
-  //         console.log("Oh no, check back soon as more businesses join!");
-  //       }
-  //     } else {
-  //       setUsers(featuredContractors);
-  //     }
-  //   });
-  // }, [searchTerm, locationSearchTerm]);
-
-  // // Options for search bar dropdown
-  // useEffect(() => {
-  //   const dataRef = ref(db, "/");
-  //   onValue(dataRef, (snapshot) => {
-  //     const data = snapshot.val();
-  //     const titles = new Set();
-  //     const options = Object.values(data)
-  //       .filter((user) => {
-  //         if (!user.title || titles.has(user.title)) {
-  //           return false;
-  //         } else {
-  //           titles.add(user.title);
-  //           return true;
+  //     templatesSnapshot.forEach((doc) => {
+  //       let serviceType = doc.data().content?.serviceType;
+  //       if (serviceType) {
+  //         serviceType = serviceType.trim();
+  //         const normalized = serviceType.toLowerCase();
+  //         if (!serviceTypesLookup[normalized]) {
+  //           serviceTypesLookup[normalized] = serviceType;
   //         }
+  //       }
+  //     });
+  //     const dropdownOptions = Object.keys(serviceTypesLookup).map(
+  //       (normalized) => ({
+  //         value: normalized,
+  //         label: serviceTypesLookup[normalized],
   //       })
-  //       .map((user) => ({
-  //         value: user.id,
-  //         label: user.title,
-  //       }));
-  //     setOptions(options);
-  //   });
+  //     );
+
+  //     setOptions(dropdownOptions);
+  //   };
+
+  //   fetchServiceTypes();
   // }, []);
+
+  //isLive version
+  useEffect(() => {
+    const fetchServiceTypes = async () => {
+      const templatesSnapshot = await db
+        .collection("templates")
+        .where("isLive", "==", true)
+        .get();
+      const serviceTypesLookup = {};
+
+      templatesSnapshot.forEach((doc) => {
+        let serviceType = doc.data().content?.serviceType;
+        if (serviceType) {
+          serviceType = serviceType.trim();
+          const normalized = serviceType.toLowerCase();
+          if (!serviceTypesLookup[normalized]) {
+            serviceTypesLookup[normalized] = serviceType;
+          }
+        }
+      });
+      const dropdownOptions = Object.keys(serviceTypesLookup).map(
+        (normalized) => ({
+          value: normalized,
+          label: serviceTypesLookup[normalized],
+        })
+      );
+
+      setOptions(dropdownOptions);
+    };
+
+    fetchServiceTypes();
+  }, []);
+
+  //isLive version
+  useEffect(() => {
+    const filterTemplates = async () => {
+      let filteredTemplates = [];
+      const serviceTypeQueries = [searchTerm];
+      if (searchTerm && options.length) {
+        const selectedDropdownOption = options.find(
+          (option) => option.value === searchTerm
+        );
+        if (selectedDropdownOption) {
+          serviceTypeQueries.push(...selectedDropdownOption.label.split(" / "));
+        }
+      }
+      if (serviceTypeQueries.length > 1) {
+        const promises = serviceTypeQueries.map((type) =>
+          db
+            .collection("templates")
+            .where("content.serviceType", "==", type)
+            .get()
+        );
+        const querySnapshots = await Promise.all(promises);
+        querySnapshots.forEach((snapshot) => {
+          snapshot.forEach((doc) => {
+            filteredTemplates.push({ id: doc.id, ...doc.data() });
+          });
+        });
+      } else if (searchTerm) {
+        const filteredTemplatesSnapshot = await db
+          .collection("templates")
+          .where("content.serviceType", "==", searchTerm)
+          .where("isLive", "==", true)
+          .get();
+        filteredTemplatesSnapshot.forEach((doc) => {
+          filteredTemplates.push({ id: doc.id, ...doc.data() });
+        });
+      } else {
+        const allTemplatesSnapshot = await db
+          .collection("templates")
+          .where("isLive", "==", true)
+          .get();
+        allTemplatesSnapshot.forEach((doc) => {
+          filteredTemplates.push({ id: doc.id, ...doc.data() });
+        });
+      }
+
+      setTemplates(filteredTemplates);
+    };
+
+    filterTemplates();
+  }, [searchTerm, locationSearchTerm, options]);
+
   const openModal = (index) => {
     setOpenModalIndex(index);
   };
 
   useEffect(() => {
     if (openModalIndex !== null) {
-      // Disable scrolling on the body when the modal is open
       document.body.style.overflow = "hidden";
     } else {
-      // Re-enable scrolling when the modal is closed
       document.body.style.overflow = "auto";
     }
-
-    // Cleanup function to re-enable scrolling when the component is unmounted
     return () => {
       document.body.style.overflow = "auto";
     };
@@ -241,8 +340,7 @@ const Browse = () => {
                   key={options.value}
                   value={options.value}
                   styles={customStylesBrowse}
-                  onChange={(option) => setSelectedOption(option)}
-                  // value={selectedOption}
+                  onChange={(option) => setSearchTerm(option.value)}
                 />
 
                 <div className="browse-search-divider"></div>
@@ -256,15 +354,9 @@ const Browse = () => {
                 <button
                   className="browse-search-button"
                   onClick={() => {
-                    setSearchTerm(selectedOption.label);
-                    setLocationSearchTerm(
-                      document.querySelector(".browse-zipcode-input").value
-                    );
-                    console.log(
-                      `.browse-zipcode-input: ${
-                        document.querySelector(".browse-zipcode-input").value
-                      }`
-                    );
+                    if (selectedOption) {
+                      setSearchTerm(selectedOption.label);
+                    }
                   }}
                 >
                   Search
@@ -290,8 +382,11 @@ const Browse = () => {
           {templates.length > 0 ? (
             searchTerm ? (
               <>
-                <h2>{searchTerm}</h2>
-                <p>List of popular {searchTerm}s in your area.</p>
+                <h2>{capitalizeFirstLetterOfEachWord(searchTerm)}</h2>
+                <p>
+                  List of popular {capitalizeFirstLetterOfEachWord(searchTerm)}{" "}
+                  businesses in your area.
+                </p>
               </>
             ) : (
               <>
@@ -305,18 +400,11 @@ const Browse = () => {
         </div>
 
         <div className="browse-results">
-          {/* <div>
-            <ul>
-              {templates.map((template, index) => (
-                <li key={index}>{JSON.stringify(template)}</li>
-              ))}
-            </ul>
-          </div> */}
           {templates.map((template, index) => (
             <div key={index} className="browse-card">
               <div className="card-image">
                 <img
-                  src={template?.content.imageURLArray[1] || avi}
+                  src={template?.content?.imageURLArray?.[1] || avi}
                   alt="template image"
                   style={{
                     width: "150px",
@@ -381,16 +469,13 @@ const Browse = () => {
         <Modal
           key={index}
           className="modal"
-          // isOpen={modalIsOpen}
           isOpen={openModalIndex === index}
-          // onRequestClose={() => setModalIsOpen(false)}
           onRequestClose={() => setOpenModalIndex(null)}
         >
           <div className="modal-details">
             <div className="profile-details">
-              {/* <img src={avi} alt="random" style={{ width: "100px" }} /> */}
               <img
-                src={template?.content.imageURLArray[1] || avi}
+                src={template?.content?.imageURLArray?.[1] || avi}
                 alt="template image"
                 style={{
                   width: "150px",
@@ -412,8 +497,6 @@ const Browse = () => {
                   )}
                 </p>
                 <span style={{ fontWeight: "bold" }}>Location: </span>
-                {/* {selectedUser?.location.suburb}, {selectedUser?.location.city},{" "}
-              {selectedUser?.location.country}, {selectedUser?.location.zipcode} */}
                 {template?.content.contactAddress || " "}
                 <p>
                   <span style={{ fontWeight: "bold" }}>Email:</span>{" "}
@@ -426,12 +509,7 @@ const Browse = () => {
               </div>
             </div>
             <div>
-              <p>
-                {/* "Here will be a short description of the contractor and the
-                services they offer, and a prompt to find out more the user can
-                view their website or book below!" */}
-                {template?.content.titleBlurb || "Book with us below! "}
-              </p>
+              <p>{template?.content.titleBlurb || "Book with us below! "}</p>
               <p>
                 <span style={{ fontWeight: "bold" }}>Website Link:</span>{" "}
                 {template?.content.preferredDomain || ""}
@@ -514,9 +592,6 @@ const Browse = () => {
               </div>
             </div>
           </div>
-          {/* <button className="modal-button" onClick={() => setModalIsOpen(false)}>
-          Close
-        </button> */}
         </Modal>
       ))}
     </div>
